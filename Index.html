@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstroPulse: The Space Weather & Orbital Tracking Terminal</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            teal: '#2dd4bf',
+                            blue: '#3b82f6',
+                            amber: '#fbbf24',
+                            red: '#ef4444',
+                            dark: '#0a0a0a',
+                            panel: 'rgba(23, 23, 23, 0.6)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #000;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(45, 212, 191, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+            color: #d4d4d4;
+        }
+        
+        .glass-panel {
+            background: theme('colors.cyber.panel');
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Dynamic Gauge Styles */
+        .gauge-container {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: conic-gradient(var(--gauge-color, #3f3f46) var(--gauge-deg, 0deg), #171717 0deg);
+            transition: background 1s ease-out;
+        }
+        .gauge-inner {
+            position: absolute;
+            width: 156px;
+            height: 156px;
+            background: #0a0a0a;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,1);
+        }
+
+        /* Custom Scrollbar for Terminal Log */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #171717; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    </style>
+</head>
+<body class="font-mono min-h-screen p-4 md:p-8 antialiased selection:bg-cyber-teal selection:text-black">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-neutral-800 pb-4">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+                    <i data-lucide="satellite" class="w-8 h-8 text-cyber-teal"></i>
+                    ASTROPULSE
+                </h1>
+                <p class="text-neutral-500 text-sm mt-1 uppercase tracking-widest">Space Weather & Orbital Tracking Terminal</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-col items-end">
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyber-teal opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-cyber-teal"></span>
+                    </span>
+                    <span class="text-cyber-teal font-bold uppercase tracking-wide">System Online</span>
+                </div>
+                <div id="clock" class="text-neutral-400 text-xs mt-1">--:--:-- UTC</div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <main class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+
+            <!-- 1. Space Weather Telemetry Core -->
+            <section class="glass-panel rounded-2xl p-6 flex flex-col items-center justify-between xl:col-span-1">
+                <div class="w-full flex justify-between items-start mb-4">
+                    <h2 class="text-white font-bold tracking-wide flex items-center gap-2">
+                        <i data-lucide="sun" class="w-5 h-5 text-cyber-amber"></i>
+                        GEOMAGNETIC ACTIVITY
+                    </h2>
+                    <span id="kp-status-badge" class="text-xs px-2 py-1 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 uppercase">
+                        Loading...
+                    </span>
+                </div>
+                
+                <div class="gauge-container my-6" id="kp-gauge">
+                    <div class="gauge-inner">
+                        <span class="text-4xl font-bold text-white" id="kp-value">--</span>
+                        <span class="text-xs text-neutral-500 mt-1">Kp INDEX</span>
+                    </div>
+                </div>
+
+                <div class="w-full text-xs text-neutral-400 bg-neutral-900/50 p-3 rounded-lg border border-neutral-800">
+                    <p class="flex justify-between"><span>Source:</span> <span class="text-white">NOAA SWPC</span></p>
+                    <p class="flex justify-between mt-1"><span>Last Updated:</span> <span class="text-white" id="kp-time">--</span></p>
+                </div>
+            </section>
+
+            <!-- 2. NEO Radar -->
+            <section class="glass-panel rounded-2xl p-6 lg:col-span-1 xl:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-white font-bold tracking-wide flex items-center gap-2">
+                        <i data-lucide="radar" class="w-5 h-5 text-cyber-blue"></i>
+                        NEAR-EARTH OBJECT RADAR (TODAY)
+                    </h2>
+                    <div class="text-xs text-neutral-500">Closest Approaches</div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead>
+                            <tr class="text-neutral-500 border-b border-neutral-800">
+                                <th class="pb-3 font-medium">DESIGNATION</th>
+                                <th class="pb-3 font-medium">APPROACH TIME</th>
+                                <th class="pb-3 font-medium">VELOCITY (km/h)</th>
+                                <th class="pb-3 font-medium">MISS DISTANCE (AU)</th>
+                                <th class="pb-3 font-medium">THREAT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="neo-table-body" class="divide-y divide-neutral-800/50">
+                            <!-- Injected via JS -->
+                            <tr><td colspan="5" class="py-4 text-center text-neutral-500">Scanning sector...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. Orbital Tracker (ISS) -->
+            <section class="glass-panel rounded-2xl p-6 lg:col-span-1 xl:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-white font-bold tracking-wide flex items-center gap-2">
+                        <i data-lucide="globe" class="w-5 h-5 text-cyber-teal"></i>
+                        ISS ORBITAL TELEMETRY
+                    </h2>
+                    <span class="flex h-2 w-2 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyber-teal opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-cyber-teal"></span>
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-black/50 p-3 rounded-lg border border-neutral-800">
+                        <div class="text-xs text-neutral-500 mb-1">LATITUDE</div>
+                        <div class="text-lg font-bold text-white" id="iss-lat">--.----°</div>
+                    </div>
+                    <div class="bg-black/50 p-3 rounded-lg border border-neutral-800">
+                        <div class="text-xs text-neutral-500 mb-1">LONGITUDE</div>
+                        <div class="text-lg font-bold text-white" id="iss-lon">--.----°</div>
+                    </div>
+                    <div class="bg-black/50 p-3 rounded-lg border border-neutral-800">
+                        <div class="text-xs text-neutral-500 mb-1">ALTITUDE</div>
+                        <div class="text-lg font-bold text-white" id="iss-alt">-- km</div>
+                    </div>
+                    <div class="bg-black/50 p-3 rounded-lg border border-neutral-800">
+                        <div class="text-xs text-neutral-500 mb-1">VELOCITY</div>
+                        <div class="text-lg font-bold text-cyber-teal" id="iss-vel">-- km/h</div>
+                    </div>
+                </div>
+
+                <div class="bg-neutral-900/40 p-4 rounded-xl border border-neutral-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm text-neutral-400 mb-1">Relative Distance to User Location</div>
+                        <div class="text-xs text-neutral-600" id="user-coords">Locating...</div>
+                    </div>
+                    <div class="text-2xl font-bold text-white tracking-tight" id="iss-distance">-- km</div>
+                </div>
+            </section>
+
+            <!-- 4. Solar Activity Log -->
+            <section class="glass-panel rounded-2xl p-6 xl:col-span-1 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-white font-bold tracking-wide flex items-center gap-2">
+                        <i data-lucide="zap" class="w-5 h-5 text-cyber-amber"></i>
+                        SOLAR FLARE LOG
+                    </h2>
+                </div>
+                
+                <div class="flex-grow overflow-y-auto pr-2 h-64 border border-neutral-800 rounded-lg bg-black/30 p-2" id="flare-log">
+                    <!-- Injected via JS -->
+                    <div class="text-neutral-500 text-sm p-2">Initializing link to NASA DONKI...</div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        /* =========================================================================
+           CORE ARCHITECTURE & UTILITIES
+        ========================================================================= */
+        
+        // Clock Synchronization
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        }, 1000);
+
+        // Date Formatters
+        const getTodayString = () => new Date().toISOString().split('T')[0];
+        const getPastDateString = (daysAgo) => {
+            const d = new Date();
+            d.setDate(d.getDate() - daysAgo);
+            return d.toISOString().split('T')[0];
+        };
+
+        // Mathematical Engine: Haversine Formula for Spherical Distance
+        function computeHaversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371.0; // Earth's mean radius in kilometers
+            const toRad = angle => angle * (Math.PI / 180);
+            
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                      
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Geolocation Wrapper
+        let userLocation = null;
+        async function initGeolocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    document.getElementById('user-coords').innerText = "Geolocation not supported.";
+                    resolve(null);
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        };
+                        document.getElementById('user-coords').innerText = 
+                            `LAT: ${userLocation.lat.toFixed(4)}° | LON: ${userLocation.lon.toFixed(4)}°`;
+                        resolve(userLocation);
+                    },
+                    (error) => {
+                        console.warn("Geolocation access denied or failed.", error);
+                        document.getElementById('user-coords').innerText = "Location access denied / fallback active.";
+                        // Fallback location: MIT Campus, Cambridge, MA for portfolio context
+                        userLocation = { lat: 42.3601, lon: -71.0942 };
+                        resolve(userLocation);
+                    }
+                );
+            });
+        }
+
+        /* =========================================================================
+           DATA FETCHING & FALLBACK MOCKS
+        ========================================================================= */
+
+        const MOCK_DATA = {
+            neo: {
+                near_earth_objects: {
+                    [getTodayString()]: [
+                        { name: "2024 AB1", close_approach_data: [{ epoch_date_close_approach: Date.now(), relative_velocity: { kilometers_per_hour: "45210.33" }, miss_distance: { astronomical: "0.0124" } }], is_potentially_hazardous_asteroid: false },
+                        { name: "2013 TX68", close_approach_data: [{ epoch_date_close_approach: Date.now() + 3600000, relative_velocity: { kilometers_per_hour: "52800.11" }, miss_distance: { astronomical: "0.0311" } }], is_potentially_hazardous_asteroid: true },
+                        { name: "2023 RS", close_approach_data: [{ epoch_date_close_approach: Date.now() + 7200000, relative_velocity: { kilometers_per_hour: "18900.50" }, miss_distance: { astronomical: "0.0845" } }], is_potentially_hazardous_asteroid: false }
+                    ]
+                }
+            },
+            flares: [
+                { flrID: "2026-M1.2", classType: "M1.2", beginTime: new Date(Date.now() - 86400000).toISOString() },
+                { flrID: "2026-C4.5", classType: "C4.5", beginTime: new Date(Date.now() - 172800000).toISOString() },
+                { flrID: "2026-X1.0", classType: "X1.0", beginTime: new Date(Date.now() - 259200000).toISOString() }
+            ]
+        };
+
+        // 1. Space Weather (NOAA Kp Index)
+        async function fetchSpaceWeather() {
+            try {
+                const res = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json');
+                if (!res.ok) throw new Error("NOAA API Error");
+                const data = await res.json();
+                
+                // Data format: [["time_tag", "Kp"], ["2024-01-01...", "2.33"], ...]
+                const latest = data[data.length - 1];
+                updateKpGauge(parseFloat(latest[1]), latest[0]);
+            } catch (err) {
+                console.error(err);
+                // Fallback to random realistic Kp value for demonstration
+                updateKpGauge(3.33 + (Math.random() * 2), new Date().toISOString());
+            }
+        }
+
+        function updateKpGauge(kpValue, timeString) {
+            const elValue = document.getElementById('kp-value');
+            const elGauge = document.getElementById('kp-gauge');
+            const elBadge = document.getElementById('kp-status-badge');
+            const elTime = document.getElementById('kp-time');
+
+            elValue.innerText = kpValue.toFixed(2);
+            elTime.innerText = timeString.substring(0, 16).replace('T', ' ') + ' Z';
+
+            // Calculate styling based on severity (0-9 scale)
+            let color = '#2dd4bf'; // Teal (Quiet)
+            let status = 'QUIET';
+            let badgeClass = 'text-cyber-teal border-cyber-teal/30 bg-cyber-teal/10';
+
+            if (kpValue >= 4 && kpValue < 5) {
+                color = '#fbbf24'; // Amber (Active)
+                status = 'ACTIVE';
+                badgeClass = 'text-cyber-amber border-cyber-amber/30 bg-cyber-amber/10';
+            } else if (kpValue >= 5) {
+                color = '#ef4444'; // Red (Storm)
+                status = 'STORM';
+                badgeClass = 'text-cyber-red border-cyber-red/30 bg-cyber-red/10';
+            }
+
+            // Update DOM
+            const degree = (kpValue / 9) * 360;
+            elGauge.style.setProperty('--gauge-color', color);
+            elGauge.style.setProperty('--gauge-deg', `${degree}deg`);
+            
+            elBadge.innerText = status;
+            elBadge.className = `text-xs px-2 py-1 rounded uppercase font-bold border ${badgeClass}`;
+        }
+
+        // 2. NEO Radar (NASA NeoWs)
+        async function fetchNEORadar() {
+            const today = getTodayString();
+            const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=DEMO_KEY`;
+            
+            try {
+                const res = await fetch(url);
+                if (res.status === 429) throw new Error("Rate Limited");
+                const data = await res.json();
+                renderNEO(data);
+            } catch (err) {
+                console.warn("NEO fetch failed, falling back to mock data.", err);
+                renderNEO(MOCK_DATA.neo);
+            }
+        }
+
+        function renderNEO(data) {
+            const today = getTodayString();
+            let objects = data.near_earth_objects[today] || [];
+            
+            // Sort by miss distance and take closest 3
+            objects.sort((a, b) => {
+                return parseFloat(a.close_approach_data[0].miss_distance.astronomical) - 
+                       parseFloat(b.close_approach_data[0].miss_distance.astronomical);
+            });
+            const closest = objects.slice(0, 3);
+
+            const tbody = document.getElementById('neo-table-body');
+            tbody.innerHTML = '';
+
+            closest.forEach(neo => {
+                const approach = neo.close_approach_data[0];
+                const time = new Date(approach.epoch_date_close_approach).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const vel = parseFloat(approach.relative_velocity.kilometers_per_hour).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                const dist = parseFloat(approach.miss_distance.astronomical).toFixed(4);
+                
+                const isHazard = neo.is_potentially_hazardous_asteroid;
+                const threatHtml = isHazard 
+                    ? `<span class="text-cyber-red bg-cyber-red/10 px-2 py-0.5 rounded border border-cyber-red/30 text-xs">HIGH</span>`
+                    : `<span class="text-cyber-teal bg-cyber-teal/10 px-2 py-0.5 rounded border border-cyber-teal/30 text-xs">NOMINAL</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors";
+                tr.innerHTML = `
+                    <td class="py-3 font-bold text-white">${neo.name}</td>
+                    <td class="py-3 text-neutral-400">${time}</td>
+                    <td class="py-3 text-neutral-300">${vel}</td>
+                    <td class="py-3 text-neutral-300 font-mono">${dist}</td>
+                    <td class="py-3">${threatHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 3. Orbital Tracker (ISS)
+        async function fetchISSData() {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                if (!res.ok) throw new Error("ISS API Error");
+                const data = await res.json();
+                
+                document.getElementById('iss-lat').innerText = data.latitude.toFixed(4) + '°';
+                document.getElementById('iss-lon').innerText = data.longitude.toFixed(4) + '°';
+                document.getElementById('iss-alt').innerText = data.altitude.toFixed(1) + ' km';
+                document.getElementById('iss-vel').innerText = data.velocity.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' km/h';
+
+                if (userLocation) {
+                    const distance = computeHaversineDistance(
+                        userLocation.lat, userLocation.lon, 
+                        data.latitude, data.longitude
+                    );
+                    document.getElementById('iss-distance').innerText = distance.toLocaleString(undefined, {maximumFractionDigits: 1}) + ' km';
+                }
+
+            } catch (err) {
+                console.warn("ISS fetch failed.", err);
+            }
+        }
+
+        // 4. Solar Flare Log (NASA DONKI)
+        async function fetchSolarFlares() {
+            const start = getPastDateString(7); // Last 7 days
+            const end = getTodayString();
+            const url = `https://api.nasa.gov/DONKI/FLR?startDate=${start}&endDate=${end}&api_key=DEMO_KEY`;
+
+            try {
+                const res = await fetch(url);
+                if (res.status === 429) throw new Error("Rate Limited");
+                const data = await res.json();
+                
+                if (!data || data.length === 0) throw new Error("No recent flares");
+                renderFlares(data.reverse());
+            } catch (err) {
+                console.warn("Solar flare fetch failed/empty, using mock.", err);
+                renderFlares(MOCK_DATA.flares);
+            }
+        }
+
+        function renderFlares(flares) {
+            const logContainer = document.getElementById('flare-log');
+            logContainer.innerHTML = '';
+
+            flares.forEach(flare => {
+                const cType = flare.classType.charAt(0);
+                let colorClass = 'text-cyber-teal';
+                
+                if (cType === 'M') colorClass = 'text-cyber-amber';
+                if (cType === 'X') colorClass = 'text-cyber-red';
+
+                const time = flare.beginTime.replace('T', ' ').replace('Z', '');
+                
+                const item = document.createElement('div');
+                item.className = "flex items-start gap-3 p-2 border-b border-neutral-800 last:border-0 hover:bg-neutral-800/30 transition-colors";
+                item.innerHTML = `
+                    <div class="mt-0.5">
+                        <i data-lucide="radio" class="w-4 h-4 ${colorClass}"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold ${colorClass}">${flare.classType} CLASS</span>
+                            <span class="text-xs text-neutral-500">${flare.flrID}</span>
+                        </div>
+                        <div class="text-xs text-neutral-400 mt-1">${time} UTC</div>
+                    </div>
+                `;
+                logContainer.appendChild(item);
+            });
+            // Re-init lucide icons for new elements
+            lucide.createIcons();
+        }
+
+        /* =========================================================================
+           APPLICATION BOOTSTRAP
+        ========================================================================= */
+        async function bootstrap() {
+            // 1. Init Geolocation
+            await initGeolocation();
+
+            // 2. Initial Data Fetch
+            fetchSpaceWeather();
+            fetchNEORadar();
+            fetchSolarFlares();
+            fetchISSData();
+
+            // 3. Set intervals for real-time data
+            // ISS moves fast, update every 5 seconds
+            setInterval(fetchISSData, 5000); 
+            // Space weather & NEOs update slower, check every 5 minutes
+            setInterval(() => {
+                fetchSpaceWeather();
+                fetchNEORadar();
+            }, 300000);
+        }
+
+        // Start Application
+        window.addEventListener('DOMContentLoaded', bootstrap);
+
+    </script>
+</body>
+</html>
